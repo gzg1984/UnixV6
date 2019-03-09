@@ -1,3 +1,7 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+extern void exit(int);
 /*
  * cp oldfile newfile
  */
@@ -5,7 +9,10 @@
 main(argc,argv)
 char **argv;
 {
-	static int buf[256];
+	struct stat target_stat;
+	struct stat source_stat;
+	static char buf[1024];
+	static char bp_a[128];
 	int fold, fnew, n;
 	register char *p1, *p2, *bp;
 	int mode;
@@ -18,23 +25,24 @@ char **argv;
 		write(1, "Cannot open old file.\n", 22);
 		exit(1);
 	}
-	fstat(fold, buf);
-	mode = buf[2];
+	fstat(fold, &source_stat);
+	mode = source_stat.st_mode;
 	/* is target a directory? */
-	if (stat(argv[2], buf+50)>=0 && (buf[52]&060000)==040000) {
+	if (stat(argv[2], &target_stat)>=0 && S_ISDIR(target_stat.st_mode)) {
 		p1 = argv[1];
 		p2 = argv[2];
-		bp = buf+100;
+		bp = bp_a;
 		while(*bp++ = *p2++);
 		bp[-1] = '/';
 		p2 = bp;
 		while(*bp = *p1++)
 			if(*bp++ == '/')
 				bp = p2;
-		argv[2] = buf+100;
+		argv[2] = bp_a;
 	}
-	if (stat(argv[2], buf+50) >= 0) {
-		if (buf[0]==buf[50] && buf[1]==buf[51]) {
+	if (stat(argv[2], &target_stat) >= 0) {
+		if (target_stat.st_dev==source_stat.st_dev 
+			&& target_stat.st_ino==source_stat.st_ino) {
 			write(1, "Copying file to itself.\n", 24);
 			exit(1);
 		}
